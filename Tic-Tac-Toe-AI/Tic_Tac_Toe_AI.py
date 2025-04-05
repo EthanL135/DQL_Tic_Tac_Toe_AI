@@ -6,7 +6,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 import random
-import gym
+import gymnasium as gym
 
 pygame.init()
 
