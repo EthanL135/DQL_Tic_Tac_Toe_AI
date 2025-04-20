@@ -87,42 +87,8 @@ def check_win(player, check_board=board):
 
     return False
 
-# Minmax function that maximizes wins/ties and minimizes losses
-# This function ensures that the AI cannot lose and the player cannot win, only tie at best
-# def minmax(minimax_board, depth, is_maximizing):
-#     # Set penalties for win/loss/tie
-#     if check_win(2, minimax_board):
-#         return float('inf')
-#     elif check_win(1, minimax_board):
-#         return float('-inf')
-#     elif is_board_full(minimax_board):
-#         return 0
-#
-#     # Main minmax code
-#     # AI explores all possible actions to choose the best possible next move
-#     if is_maximizing:
-#         best_score = -1000
-#         for row in range(BOARD_ROWS):
-#             for col in range(BOARD_COLS):
-#                 if minimax_board[row][col] == 0:
-#                     minimax_board[row][col] = 2
-#                     score = minmax(minimax_board, depth + 1, False)
-#                     minimax_board[row][col] = 0
-#                     best_score = max(score, best_score)
-#         return best_score
-#     else:
-#         best_score = 1000
-#         for row in range(BOARD_ROWS):
-#             for col in range(BOARD_COLS):
-#                 if minimax_board[row][col] == 0:
-#                     minimax_board[row][col] = 1
-#                     score = minmax(minimax_board, depth + 1, True)
-#                     minimax_board[row][col] = 0
-#                     best_score = min(score, best_score)
-#         return best_score
-
-# Determines the AI's next best move using the minmax function
-def best_move():
+# Determines the AI's next best move
+# def best_move():
     best_score = -1000
     move = (-1, -1)
     for row in range(BOARD_ROWS):
@@ -242,53 +208,53 @@ class TicTacToeAiDQL():
 
 
 
-draw_lines()
-player = 1
-game_over = False
+# draw_lines()
+# player = 1
+# game_over = False
 
-# Game loop
-while True:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            sys.exit()
+# # Game loop
+# while True:
+#     for event in pygame.event.get():
+#         if event.type == pygame.QUIT:
+#             sys.exit()
 
-        if event.type == pygame.MOUSEBUTTONDOWN and not game_over:
-            mouseX = event.pos[0] // SQUARE_SIZE
-            mouseY = event.pos[1] // SQUARE_SIZE
+#         if event.type == pygame.MOUSEBUTTONDOWN and not game_over:
+#             mouseX = event.pos[0] // SQUARE_SIZE
+#             mouseY = event.pos[1] // SQUARE_SIZE
 
-            if available_square(mouseY, mouseX):
-                mark_square(mouseY, mouseX, player)
-                if check_win(player):
-                    game_over = True
-                player = player % 2 + 1
+#             if available_square(mouseY, mouseX):
+#                 mark_square(mouseY, mouseX, player)
+#                 if check_win(player):
+#                     game_over = True
+#                 player = player % 2 + 1
 
-                if not game_over:
-                    if best_move():
-                        if check_win(2):
-                            game_over = True
-                        player = player % 2 + 1
+#                 if not game_over:
+#                     if best_move():
+#                         if check_win(2):
+#                             game_over = True
+#                         player = player % 2 + 1
 
-                if not game_over:
-                    if is_board_full():
-                        game_over = True
+#                 if not game_over:
+#                     if is_board_full():
+#                         game_over = True
 
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_r:
-                restart_game()
-                game_over = False
-                player = 1
+#         if event.type == pygame.KEYDOWN:
+#             if event.key == pygame.K_r:
+#                 restart_game()
+#                 game_over = False
+#                 player = 1
 
-    if not game_over:
-        draw_figures()
-    else:
-        if check_win(1):
-            draw_figures(GREEN)
-            draw_figures(GREEN)
-        elif check_win(2):
-            draw_figures(RED)
-            draw_figures(RED)
-        else:
-            draw_figures(GRAY)
-            draw_lines(GRAY)
+#     if not game_over:
+#         draw_figures()
+#     else:
+#         if check_win(1):
+#             draw_figures(GREEN)
+#             draw_figures(GREEN)
+#         elif check_win(2):
+#             draw_figures(RED)
+#             draw_figures(RED)
+#         else:
+#             draw_figures(GRAY)
+#             draw_lines(GRAY)
 
-    pygame.display.update()
+#     pygame.display.update()

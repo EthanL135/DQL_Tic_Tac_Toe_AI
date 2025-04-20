@@ -10,6 +10,7 @@ import torch.nn.functional as F
 import random
 import gymnasium as gym
 import DQL as DQL
+import Tic_Tac_Toe_AI as TTT
 
 BOARD_ROWS = 3
 BOARD_COLS = 3
@@ -26,14 +27,17 @@ def is_board_full(check_board=board):
 
 # Checks to see if there's a winner
 def check_win(check_board):
+    # Check all columns
     for col in range(3):
         if check_board[0][col] == check_board[1][col] == check_board[2][col] != 0:
             return check_board[0][col]
 
+    # Check all rows
     for row in range(3):
         if check_board[row][0] == check_board[row][1] == check_board[row][2] != 0:
             return check_board[row][0]
 
+    # Check diagonals
     if check_board[0][0] == check_board[1][1] == check_board[2][2] !=0:
         return check_board[1][1]
 
@@ -43,23 +47,28 @@ def check_win(check_board):
     return -1
 
 
-def best_move():
-    best_score = -1000
+def best_move(state, player, board):
+    # Model selects the best move
+    with torch.no_grad():
+        if player == 1:
+            q_values = model1(state)  # Get Q-values for each action
+        else:
+            q_values = model2(state)
+    q_values = q_values.squeeze(0).cpu().numpy()  # Remove batch dimension and convert to numpy
+
+    # Select the action with the highest Q-value
+    valid_actions = np.where(board.flatten() == 0)[0]  # Find all empty spots (valid actions)
+    valid_q_values = q_values[valid_actions]  # Get Q-values for only valid actions
+    action = valid_actions[np.argmax(valid_q_values)]  # Select the valid action with the highest Q-value
+    
+    # This variable is for marking the correct square in pygame window
     move = (-1, -1)
-    for row in range(BOARD_ROWS):
-        for col in range(BOARD_COLS):
-            if board[row][col] == 0:
-                board[row][col] = 2
-                #score = minmax(board, 0, False)
-                board[row][col] = 0
-                if score > best_score:
-                    best_score = score
-                    move = (row, col)
+    row, col = divmod(action, 3)
+    move = (row, col)
 
     if move != (-1, -1):
-        mark_square(move[0], move[1], 2)
-        return True
-    return False
+        return row, col, action
+    return row, col, action
 
 
 class DQN(nn.Module):
@@ -117,24 +126,13 @@ def play_game(model1, model2, replay_memory1, replay_memory2, num_games=1000):
         state = DQL.state_to_dqn_input(board.flatten())
         
         while not game_over:
-            # Model selects the best move
-            with torch.no_grad():
-                if player ==1:
-                    q_values = model1(state)  # Get Q-values for each action
-                else:
-                    q_values = model2(state)
-            q_values = q_values.squeeze(0).cpu().numpy()  # Remove batch dimension and convert to numpy
-
-            # Select the action with the highest Q-value
-            valid_actions = np.where(board.flatten() == 0)[0]  # Find all empty spots (valid actions)
-            valid_q_values = q_values[valid_actions]  # Get Q-values for only valid actions
-            action = valid_actions[np.argmax(valid_q_values)]  # Select the valid action with the highest Q-value
-
-            row, col = divmod(action, 3)
+            bestMove = best_move(state, player, board)
 
             # Make the move
-            if board[row][col] == 0:  # Check if the spot is empty
-                board[row][col] = player
+            if board[bestMove[0]][bestMove[1]] == 0:  # Check if the spot is empty
+                board[bestMove[0]][bestMove[1]] = player
+                print(board)
+                print()
                 # Calculate the reward and check if the player has won
                 reward = 0
                 
@@ -145,16 +143,19 @@ def play_game(model1, model2, replay_memory1, replay_memory2, num_games=1000):
                         p2wins += 1  # Player 2 wins
                         p1losses += 1
                         game_over = True
+                        print("Player 2 Wins!\n\n")
                     else:
                         reward = -1 # Losing reward
                         winner = 1
                         p1wins +=1
                         p2losses += 1  # Player 1 wins
                         game_over = True
+                        print("Player 1 Wins!\n\n")
                 elif is_board_full(board):
                     reward = 0.5  # Tie reward
                     ties += 1  # Tie condition (board full with no winner)
                     game_over = True
+                    print("Its a tie..\n\n")
                 else:
                     reward = 0  # No reward if the game is still ongoing
 
@@ -162,14 +163,14 @@ def play_game(model1, model2, replay_memory1, replay_memory2, num_games=1000):
                 next_state = DQL.state_to_dqn_input(board.flatten())  # Convert the next board state
                 done = 1 if game_over else 0  # Done flag (1 if the game is over, else 0)
                 if winner == 1:
-                    replay_memory1.push((state, action, reward, next_state, done))  # Add experience to replay memory
-                    replay_memory2.push((state, action, (reward * -1), next_state, done))
+                    replay_memory1.push((state, bestMove[2], reward, next_state, done))  # Add experience to replay memory
+                    replay_memory2.push((state, bestMove[2], (reward * -1), next_state, done))
                 elif winner ==2:
-                    replay_memory2.push((state, action, reward, next_state, done))
-                    replay_memory1.push((state, action, (reward * -1), next_state, done))
+                    replay_memory2.push((state, bestMove[2], reward, next_state, done))
+                    replay_memory1.push((state, bestMove[2], (reward * -1), next_state, done))
                 else:
-                    replay_memory1.push((state, action, reward, next_state, done))
-                    replay_memory2.push((state, action, reward, next_state, done))
+                    replay_memory1.push((state, bestMove[2], reward, next_state, done))
+                    replay_memory2.push((state, bestMove[2], reward, next_state, done))
                 # Update the state for the next move
                 state = next_state
 
@@ -177,6 +178,72 @@ def play_game(model1, model2, replay_memory1, replay_memory2, num_games=1000):
                 player = 2 if player == 1 else 1
 
     return p1wins, p2wins, p1losses, p2losses, ties
+
+
+def run_game_loop():
+    global player, board, game_over
+
+    TTT.draw_lines()
+    board = np.zeros((BOARD_ROWS, BOARD_COLS))
+    player = 1  # Human starts
+    game_over = False
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
+                TTT.restart_game()
+                board = np.zeros((BOARD_ROWS, BOARD_COLS))
+                game_over = False
+                player = 1  # Reset to human
+
+            if event.type == pygame.MOUSEBUTTONDOWN and not game_over and player == 1:
+                mouseX = event.pos[0] // SQUARE_SIZE
+                mouseY = event.pos[1] // SQUARE_SIZE
+
+                if TTT.available_square(mouseY, mouseX):
+                    TTT.mark_square(mouseY, mouseX, 1)
+                    board[mouseY][mouseX] = 1
+
+                    if check_win(board) == 1 or is_board_full(board):
+                        game_over = True
+                    else:
+                        player = 2  # Switch to AI
+
+        # AI Move
+        if not game_over and player == 2:
+            pygame.time.delay(500)  # Optional delay for realism
+            state = DQL.state_to_dqn_input(board.flatten())
+            row, col, _ = best_move(state, player, board)
+            if TTT.available_square(row, col):
+                TTT.mark_square(row, col, 2)
+                board[row][col] = 2
+
+                if check_win(board) == 2 or is_board_full(board):
+                    game_over = True
+                else:
+                    player = 1  # Switch back to human
+
+        # Draw board and updates
+        if not game_over:
+            TTT.draw_figures()
+        else:
+            if check_win(board) == 1:
+                TTT.draw_figures(GREEN)
+                TTT.draw_figures(GREEN)
+            elif check_win(board) == 2:
+                TTT.draw_figures(RED)
+                TTT.draw_figures(RED)
+            else:
+                TTT.draw_figures(GRAY)
+                TTT.draw_lines(GRAY)
+
+        pygame.display.update()
+
+
 
 # Hyperparameters
 batch_size = 32
@@ -202,6 +269,33 @@ if p1losses > p1wins:
     model2.train_model(optimizer2, criterion, replay_memory2, 64, 25)
 else:
     model1.train_model(optimizer1, criterion, replay_memory1, 64, 25)
+
+# Initialize pygame
+pygame.init()
+
+# Colors
+WHITE = (255, 255, 255)
+GRAY = (180, 180, 180)
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
+BLACK = (0, 0, 0)
+
+# Proportions & Sizes
+WIDTH = 300
+HEIGHT = 300
+LINE_WIDTH = 5
+BOARD_ROWS = 3
+BOARD_COLS = 3
+SQUARE_SIZE = WIDTH // BOARD_COLS
+CIRCLE_RADIUS = SQUARE_SIZE // 3
+CIRCLE_WIDTH = 15
+CROSS_WIDTH = 25
+
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption('Tic-Tac-Toe AI')
+screen.fill(BLACK)
+
+run_game_loop()
 
 # # Load data
 # X, y = format_data('trainTTT.data')  # Replace with your actual file path
